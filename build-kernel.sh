@@ -21,4 +21,4 @@
 
 # [#include backend-sudo.sh]
     echo "[Startup] Sourced script backend"
-    source backend-sudo.sh
+    source backend.sh

@@ -17,15 +17,19 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 # [Generic Configs]
-    name="Sudo" # Kernel Name
-    device_a="rosemary" 
-    device_b="disabled" # unused slots shoud be set to "disabled"
-    device_c="disabled" # :
-    device_d="disabled" # :
-    device_e="disabled" # :
-    soc="SudoPower" # You can put anything here
-    ksu="disabled" # disabled/enabled
-    selinux="enforce" # enforce (chad) / permissive (yuck)
+    export name="Sudo" # Kernel Name
+    export device_a="disabled" # unused slots shoud be set to "disabled"
+    export device_b="disabled" # :
+    export device_c="disabled" # :
+    export device_d="disabled" # :
+    export device_e="disabled" # :
+    export soc="SudoPower" # You can put anything here
+    export ksu="disabled" # disabled/enabled
+    export selinux="enforce" # enforce (chad) / permissive (yuck)
+
+# [Kernel Name Options]
+    export kernel_ksu="$name"KSU""
+    export kernel_vanilla="$name"
 
 ## [Image/Zip Configs]
     todo="todo"
@@ -33,31 +37,214 @@
 # [Stupid Variables Something]
     export arch="arm64" 
     export subarch="arm64"
-    export ANDROID_MAJOR_VERSION=q # Q, R, S, T, U
-    export ScriptDebugger=disabled # enabled/disabled, logs shit happening during script runtime
+    export ANDROID_MAJOR_VERSION="Q" # Q, R, S, T, U
+    export ScriptDebugger="disabled" # enabled/disabled, logs shit happening during script runtime
 
 # [Defconfig Paths] Replace device_defconfig with the name of your standalone or otherwise split defconfig specific to your device.
-    pwd="$(pwd)" # Presumably Kernel Workdir
-    conf_dir="$pwd/arch/$arch/configs/"
-    conf_a="$conf_dir/device_defconfig"
-    conf_b="$conf_dir/device_defconfig"
-    conf_c="$conf_dir/device_defconfig"
-    conf_d="$conf_dir/device_defconfig"
-    conf_e="$conf_dir/device_defconfig"
+    export pwd="$(pwd)" # Presumably Kernel Workdir
+    export conf_dir="$pwd/arch/$arch/configs"
+    export conf_a="$conf_dir/device_defconfig"
+    export conf_b="$conf_dir/device_defconfig"
+    export conf_c="$conf_dir/device_defconfig"
+    export conf_d="$conf_dir/device_defconfig"
+    export conf_e="$conf_dir/device_defconfig"
 
-# [Some Misc Stuff]
-    base_defconfig="$conf_dir/undefined" # Set to undefined to disable
-    ext_defconfig="$conf_dir/underfined" # Set to undefined to disable merging of custom defconfig, otherwise specify filename of it.
-    regio_defconfig="$conf_dir/undefined" # on my kernel is either eur_defconfig or kor_defconfig, set to undefined to disable.
-    out_dtb="$pwd/arch/$arch/boot/dtb.img"
+# [Custom Defconfig Configs]
+    export base_defconfig="$conf_dir/undefined" # Set to undefined to disable
+    export ext_defconfig="$conf_dir/underfined" # Set to undefined to disable
+    export regio_defconfig="$conf_dir/undefined" # set to undefined to disable.
+
+# [Misc Stuff]
+    export temp_defconfig="$conf_dir/temp_defconfig" # Do not touch
+    export out_dtb="$pwd/arch/$arch/boot/dtb.img" # Do not touch unless your dtb.img is generated elsewhere.
 
 # [GCC Configs]
     export CC="aarch64-linux-gnu-" 
     export LD="ld.gold"
 
 # [Placeholders]
-    selected="$conf_a"          # Placeholder
-    device_selected="$device_a" # : ^^^
+    export selected="$conf_a"          # Placeholder
+    export device_selected="$device_a" # : ^^^
+
+# [Backend]
+    build() {
+        if [[ "$1" == "ksu" ]]; then
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: enabled KernelSU"
+            fi
+            export ksu="enabled"
+        elif [[ "$1" == "vanilla" ]]; then
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: disabled KernelSU"
+            fi
+            export ksu="disabled"
+        else
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: KernelSU defaults to $ksu"
+            fi
+        fi
+
+        if [[ "$ksu" == "disabled" ]]; then
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: setting kernel name to $kernel_vanilla"
+            fi
+            export LOCALVERSION="-$kernel_vanilla"
+        elif [[ "$ksu" == "enabled" ]]; then
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: setting kernel name to $kernel_ksu"
+            fi
+            export LOCALVERSION="-$kernel_ksu"
+        else
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: setting kernel name to $kernel_vanilla"
+            fi
+            export LOCALVERSION="-$kernel_vanilla"
+        fi
+
+        if [[ "$1" == "sudo" ]]; then
+            sudo make build -j$(nproc) # Building with Sudo is only gonna cause trouble, I put this here because it is a inside joke.
+        else
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: start build process"
+            fi    
+            make build -j$(nproc)      # <- This is the halal way to build the Linux Kernel
+        fi
+    } # Used to set kernel name and build it
+
+    genconf_temp() {
+        if [[ "$ScriptDebugger" == "enabled" ]]; then
+            echo "Debugger: genconf_temp: stage 1: garbage old temp_defconfig"
+            echo "Debugger: genconf_temp: stage 2: create empty temp_defconfig"
+        fi
+        rm "$conf_dir/temp_defconfig" > /dev/null 2>&1
+        touch "$conf_dir/temp_defconfig"
+
+        if [[ "$base_defconfig" != "undefined" ]]; then
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: genconf_temp: insert device defconfig into temp_defconfig"
+            fi
+            cat "$base_defconfig" >> "$conf_dir/temp_defconfig"
+        fi
+
+        cat "$selected" >> "$conf_dir/temp_defconfig" # Selected Device Defconfig 
+
+        if [[ "$ext_defconfig" != "undefined" ]]; then
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: genconf_temp: insert extra defconfig into temp_defconfig"
+            fi
+            cat "$ext_defconfig" >> "$conf_dir/temp_defconfig"
+        fi
+
+        if [[ "$regio_defconfig" != "undefined" ]]; then
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: genconf_temp: insert regio defconfig into temp_defconfig"
+            fi
+            cat "$regio_defconfig" >> "$conf_dir/temp_defconfig"
+        fi
+    } # Used to generate defconfig
+
+    append_kernelsu() {
+        if [[ "$ksu" == "enabled" ]]; then
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: building KernelSU kernel"
+            fi
+            echo "CONFIG_KSU=y" >> "$conf_dir/temp_defconfig"
+        else
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: building Vanilla kernel"
+            fi
+            echo "CONFIG_KSU=n" >> "$conf_dir/temp_defconfig"
+        fi
+    }
+
+    append_selinux() {
+        if [[ "$selinux" == "permissive" ]]; then
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: Building Selinux Permissive Kernel"
+            fi
+            echo "CONFIG_ALWAYS_PERMISSIVE=y" >> "$conf_dir/temp_defconfig"
+        elif [[ "$selinux" == "enforce" ]]; then
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: Building Selinux Enforce Kernel"
+                echo "CONFIG_ALWAYS_PERMISSIVE=n" >> "$conf_dir/temp_defconfig"
+            fi
+        fi
+    }
+
+    genconf() {
+        if [[ "$arch" == "arm64" && "$selected" != "Device Disabled" && "$ext_defconfig" == "undefined" && "$base_defconfig" == "undefined" && "$regio_defconfig" == "undefined" ]]; then
+            genconf_temp && append_selinux && append_kernelsu
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: genconf: make non-split defconfig"
+            fi
+            make "$conf_dir/temp_defconfig"
+        elif [[ "$arch" == "arm64" && "$selected" != "Device Disabled" ]]; then
+            genconf_temp && append_selinux && append_kernelsu
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: genconf: make split defconfig"
+            fi
+            make "$conf_dir/temp_defconfig"
+        elif [[ "$arch" == "x86" ]]; then
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debugger: genconf: make x86 defconfig via menuconfig"
+            fi
+            make menuconfig
+        fi
+    } # Used to make defconfig
+
+    clean() {
+        if [[ "$1" == "simple" ]]; then
+            echo "Sudo: cleaning directory"
+            make clean
+        elif [[ "$1" == "advanced" ]]; then
+            echo "Sudo: cleaning directory in depth"
+            make clean && make mrproper
+        else
+            echo "Sudo: cleaning directory"
+            make clean
+        fi 
+    } # Used for cleaning Linux work directory
+
+    check_clanglto() {
+        if [[ ! -f "$temp_defconfig" ]]; then
+            echo "Error: '$temp_defconfig' does not exist."
+            exit 1
+        fi
+
+        if grep -q "CONFIG_LTO_CLANG=y" "$temp_defconfig"; then
+            echo "Error: detected 'CONFIG_LTO_CLANG=y' in '$temp_defconfig'."
+
+            if grep -q "CONFIG_LTO_CLANG=y" "$selected"; then
+                echo "Info: \"CONFIG_LTO_CLANG=y\" found in $selected"
+            elif [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "Debug: \"CONFIG_LTO_CLANG=y\" not found in $selected"
+            fi
+
+            if grep -q "CONFIG_LTO_CLANG=y" "$base_defconfig"; then
+                echo "Info: \"CONFIG_LTO_CLANG=y\" found in $base_defconfig"
+            elif [[ "$ScriptDebugger" == "enabled" && "$base_defconfig" != "undefined" ]]; then
+                echo "Debug: \"CONFIG_LTO_CLANG=y\" not found in $base_defconfig"
+            fi
+
+            if grep -q "CONFIG_LTO_CLANG=y" "$ext_defconfig"; then
+                echo "Info: \"CONFIG_LTO_CLANG=y\" found in $ext_defconfig"
+            elif [[ "$ScriptDebugger" == "enabled" && "$ext_defconfig" != "undefined" ]]; then
+                echo "Debug: \"CONFIG_LTO_CLANG=y\" not found in $ext_defconfig"
+            fi
+
+            if grep -q "CONFIG_LTO_CLANG=y" "$regio_defconfig"; then
+                echo "Info: \"CONFIG_LTO_CLANG=y\" found in $regio_defconfig"
+            elif [[ "$ScriptDebugger" == "enabled" && "$regio_defconfig" != "undefined" ]]; then
+                echo "Debug: \"CONFIG_LTO_CLANG=y\" not found in $regio_defconfig"
+            fi
+
+            exit 2 > /dev/null 2>&1
+        else
+            if [[ "$ScriptDebugger" == "enabled" ]]; then
+                echo "No occurrences of 'CONFIG_LTO_CLANG=y' found in '$temp_defconfig'."
+            fi
+        fi
+    }
 
 # [Init Scripts]
     if [[ $device_a == "disabled" ]]; then
@@ -97,149 +284,11 @@
 
     if [ -n "${LLVM+x}" ]; then
         echo "Fatal: LLVM enabled, please start script in a clean env"
+        check_clanglto
         exit 1 > /dev/null 2>&1
     else
         if [[ "$ScriptDebugger" == "enabled" ]]; then
             echo "Debugger: LLVM not detected, continue script."
         fi
+        check_clanglto
     fi
-
-# [Backend]
-    build() {
-        if [[ "$1" == "ksu" ]]; then
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: enabled KernelSU"
-            fi
-            export ksu="enabled"
-        elif [[ "$1" == "vanilla" ]]; then
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: disabled KernelSU"
-            fi
-            export ksu="disabled"
-        else
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: KernelSU defaults to $ksu"
-            fi
-        fi
-
-        if [[ "$ksu" == "disabled" ]]; then
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: setting kernel name to $name"
-            fi
-            export LOCALVERSION="-$name"
-        elif [[ "$ksu" == "enabled" ]]; then
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: setting kernel name to $name-KernelSU"
-            fi
-            export LOCALVERSION="-$name-KernelSU"
-        else
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: setting kernel name to $name"
-            fi
-            export LOCALVERSION="-$name"
-        fi
-
-        if [[ "$1" == "sudo" ]]; then
-            sudo make build -j$(nproc) # Building with Sudo is only gonna cause trouble, I put this here because it is a inside joke.
-        else
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: start build process"
-            fi
-            echo "Warning: disable CONFIG_LTO_CLANG in your defconfig if its enabled"     
-            make build -j$(nproc)      # <- This is the halal way to build the Linux Kernel
-        fi
-    } # Used to set kernel name and build it
-
-    genconf_temp() {
-        if [[ "$ScriptDebugger" == "enabled" ]]; then
-            echo "Debugger: genconf_temp: stage 1: garbage old temp_defconfig"
-            echo "Debugger: genconf_temp: stage 2: create empty temp_defconfig"
-        fi
-        rm "$conf_dir/temp_defconfig" > /dev/null 2>&1
-        touch "$conf_dir/temp_defconfig"
-        
-        cat "$selected" >> "$conf_dir/temp_defconfig"
-
-        if [[ "$base_defconfig" != "undefined" ]]; then
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: genconf_temp: insert device defconfig into temp_defconfig"
-            fi
-            cat "$base_defconfig" >> "$conf_dir/temp_defconfig"
-        fi
-
-        if [[ "$ext_defconfig" != "undefined" ]]; then
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: genconf_temp: insert extra defconfig into temp_defconfig"
-            fi
-            cat "$ext_defconfig" >> "$conf_dir/temp_defconfig"
-        fi
-
-        if [[ "$regio_defconfig" != "undefined" ]]; then
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: genconf_temp: insert regio defconfig into temp_defconfig"
-            fi
-            cat "$regio_defconfig" >> "$conf_dir/temp_defconfig"
-        fi
-    } # Used to generate a custom defconfig based off 2 or more defconfigs
-
-    append_kernelsu() {
-        if [[ "$ksu" == "enabled" ]]; then
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: building KernelSU kernel"
-            fi
-            echo "CONFIG_KSU=y" >> "$conf_dir/temp_defconfig"
-        else
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: building Vanilla kernel"
-            fi
-        fi
-    }
-
-    append_selinux() {
-        if [[ "$selinux" == "permissive" ]]; then
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: Building Selinux Permissive Kernel"
-            fi
-            echo "CONFIG_ALWAYS_PERMISSIVE=y" >> "$conf_dir/temp_defconfig"
-        elif [[ "$selinux" == "enforce" ]]; then
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: Building Selinux Enforce Kernel"
-                # Echoing to temp_defconfig not needed because kernel with patched selinux will build with enforce unless CONFIG_ALWAYS_PERMISSIVE is enabled
-            fi
-        fi
-    }
-
-    genconf() {
-        if [[ "$arch" == "arm64" && "$selected" != "Device Disabled" && "$ext_defconfig" == "undefined" && "$base_defconfig" == "undefined" && "$regio_defconfig" == "undefined" ]]; then
-            genconf_temp && append_selinux && append_kernelsu
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: genconf: make non-split defconfig"
-            fi
-            make "$conf_dir/temp_defconfig"
-        elif [[ "$arch" == "arm64" && "$selected" != "Device Disabled"]]; then
-            genconf_temp && append_selinux && append_kernelsu
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: genconf: make split defconfig"
-            fi
-            make "$conf_dir/temp_defconfig"
-        elif [[ "$arch" == "x86" ]]; then
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: genconf: make x86 defconfig via menuconfig"
-            fi
-            make menuconfig
-        fi
-    } # Used to make defconfig
-
-    clean() {
-        if [[ "$1" == "simple" ]]; then
-            echo "Sudo: cleaning directory"
-            make clean
-        elif [[ "$1" == "advanced" ]]; then
-            echo "Sudo: cleaning directory in depth"
-            make clean && make mrproper
-        else
-            echo "Sudo: cleaning directory"
-            make clean
-        fi 
-    } # Used for cleaning Linux work directory
-
