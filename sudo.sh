@@ -17,8 +17,8 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 # [Disclaimer]
-echo "[Disclaimer] Don't use with GKI Kernel"
+    echo "[Disclaimer] Don't use with GKI Kernel"
 
-# [Sudo] #include backend-sudo.sh
-echo "[Startup] Sourced script backend"
-source backend-sudo.sh
+# [#include backend-sudo.sh]
+    echo "[Startup] Sourced script backend"
+    source backend-sudo.sh
