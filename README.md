@@ -1,2 +1,9 @@
-# Sudo-Jager
-Sudo'ed Linux [Android] Build Script
+# Linux Kernel [Android] Builder
+
+### Compatibility
+- Android Common Kernel [Pre-GKI]
+- Linux with Bash installed (Or WSL)
+
+## Credits
+- ChatGPT
+- Me
