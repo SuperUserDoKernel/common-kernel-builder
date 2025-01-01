@@ -65,22 +65,30 @@
             echo "Debugger: disabled device A"
         fi
         export conf_a="Device Disabled"
-    elif [[ $device_b == "disabled" ]]; then
+    fi
+
+    if [[ $device_b == "disabled" ]]; then
         if [[ "$ScriptDebugger" == "enabled" ]]; then
             echo "Debugger: disabled device B"
         fi
         export conf_b="Device Disabled"
-    elif [[ $device_c == "disabled" ]]; then
+    fi
+
+    if [[ $device_c == "disabled" ]]; then
         if [[ "$ScriptDebugger" == "enabled" ]]; then
             echo "Debugger: disabled device C"
         fi
         export conf_c="Device Disabled"
-    elif [[ $device_d == "disabled" ]]; then
+    fi
+
+    if [[ $device_d == "disabled" ]]; then
         if [[ "$ScriptDebugger" == "enabled" ]]; then
             echo "Debugger: disabled device D"
         fi
         export conf_d="Device Disabled"
-    elif [[ $device_e == "disabled" ]]; then
+    fi
+
+    if [[ $device_e == "disabled" ]]; then
         if [[ "$ScriptDebugger" == "enabled" ]]; then
             echo "Debugger: disabled device E"
         fi
