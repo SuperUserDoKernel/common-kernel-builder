@@ -101,14 +101,7 @@
             export LOCALVERSION="-$kernel_vanilla"
         fi
 
-        if [[ "$1" == "sudo" ]]; then
-            sudo make build -j$(nproc) # Building with Sudo is only gonna cause trouble, I put this here because it is a inside joke.
-        else
-            if [[ "$ScriptDebugger" == "enabled" ]]; then
-                echo "Debugger: start build process"
-            fi    
-            make build -j$(nproc)      # <- This is the halal way to build the Linux Kernel
-        fi
+        make build -j$(nproc)
     } # Used to set kernel name and build it
 
     genconf_temp() {
